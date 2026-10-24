@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DocFlow AI – Convert and compress documents</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#EEF1EC; --surface:#FBFCFA; --ink:#14201B; --muted:#56635C; --rule:#CBD3CC;
+  --accent:#0F5C4D; --accent-hover:#0A4439; --mark:#DDEB5A;
+  --ok:#0F5C4D; --err:#A8321F; --warn:#7A5A00;
+  --r-sm:6px; --r-md:10px;
+  --f-display:'Bricolage Grotesque','DM Sans',system-ui,sans-serif;
+  --f-body:'DM Sans',system-ui,-apple-system,'Segoe UI',sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-text-size-adjust:100%}
+body{background:var(--paper);color:var(--ink);font:400 16px/1.55 var(--f-body);min-height:100vh;display:flex;flex-direction:column}
+:focus-visible{outline:3px solid var(--accent);outline-offset:3px}
+
+header{max-width:1040px;width:100%;margin:0 auto;padding:28px 24px 0;display:flex;align-items:center;gap:10px}
+.mark{width:28px;height:28px;border-radius:var(--r-sm);background:var(--ink);display:grid;place-items:center}
+.mark svg{width:16px;height:16px;stroke:var(--mark);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.brand{font:700 1.15rem var(--f-display);letter-spacing:-.01em}
+
+main{flex:1;max-width:1040px;width:100%;margin:0 auto;padding:56px 24px 72px}
+h1{font:700 clamp(2rem,5vw,3.25rem)/1.05 var(--f-display);letter-spacing:-.025em;max-width:16ch}
+.lede{margin-top:16px;color:var(--muted);max-width:46ch}
+
+.workbench{margin-top:44px;display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);border:1px solid var(--ink);border-radius:var(--r-md);background:var(--surface);overflow:hidden}
+.pane{padding:28px}
+.pane+.pane{border-left:1px solid var(--ink)}
+h2{font:600 1rem var(--f-display);margin-bottom:14px}
+
+/* tool picker */
+fieldset{border:0}
+.tools{display:flex;flex-direction:column;gap:8px}
+.tool input{position:absolute;opacity:0;pointer-events:none}
+.tool label{display:block;padding:14px 16px;border:1px solid var(--rule);border-radius:var(--r-sm);cursor:pointer;transition:background .15s,border-color .15s}
+.tool label:hover{border-color:var(--ink)}
+.tool input:checked+label{background:var(--mark);border-color:var(--ink)}
+.tool input:focus-visible+label{outline:3px solid var(--accent);outline-offset:3px}
+.tool b{display:block;font-weight:600}
+.tool span{display:block;font-size:.875rem;color:var(--muted);margin-top:2px}
+.tool input:checked+label span{color:var(--ink)}
+
+/* drop tray */
+.drop{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;text-align:center;min-height:190px;padding:28px 20px;border:2px dashed var(--rule);border-radius:var(--r-md);background:var(--paper);cursor:pointer;transition:border-color .15s,background .15s}
+.drop:hover,.drop.dragover{border-color:var(--accent);background:#E6ECE2}
+.drop input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer}
+.drop:focus-within{outline:3px solid var(--accent);outline-offset:3px}
+.drop svg{width:30px;height:30px;stroke:var(--ink);fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.drop strong{font-weight:600}
+.drop small{color:var(--muted)}
+.drop u{text-decoration-thickness:2px;text-underline-offset:3px}
+
+.file{display:none;align-items:center;gap:12px;margin-top:12px;padding:12px 14px;border:1px solid var(--ink);border-radius:var(--r-sm);background:var(--surface)}
+.file.on{display:flex}
+.file .ext{flex:none;font:700 .75rem var(--f-display);background:var(--ink);color:var(--mark);padding:4px 7px;border-radius:4px}
+.file .meta{flex:1;min-width:0}
+.file .name{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.file .size{font-size:.85rem;color:var(--muted)}
+.file button{flex:none;background:none;border:1px solid var(--rule);border-radius:var(--r-sm);padding:6px 10px;font:500 .85rem var(--f-body);color:var(--ink);cursor:pointer}
+.file button:hover{border-color:var(--ink)}
+
+.opt{display:none;margin-top:18px}
+.opt.on{display:block}
+.opt label{display:block;font-weight:600;font-size:.9rem;margin-bottom:6px}
+.opt select{width:100%;padding:11px 12px;border:1px solid var(--ink);border-radius:var(--r-sm);background:var(--surface);color:var(--ink);font:inherit}
+
+.go{margin-top:22px;width:100%;display:flex;align-items:center;justify-content:center;gap:10px;padding:15px 20px;border:0;border-radius:var(--r-sm);background:var(--accent);color:#fff;font:600 1rem var(--f-body);cursor:pointer;transition:background .15s}
+.go:hover:not(:disabled){background:var(--accent-hover)}
+.go:disabled{background:#9AA9A2;cursor:not-allowed}
+.spin{display:none;width:16px;height:16px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:spin .8s linear infinite}
+.go.busy .spin{display:block}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.status{margin-top:14px;min-height:1.5em;font-size:.95rem;font-weight:500}
+.status.ok{color:var(--ok)} .status.err{color:var(--err)} .status.wait{color:var(--warn)}
+
+footer{max-width:1040px;width:100%;margin:0 auto;padding:0 24px 28px;color:var(--muted);font-size:.85rem}
+
+@media (max-width:760px){
+  main{padding-top:36px}
+  .workbench{grid-template-columns:1fr}
+  .pane+.pane{border-left:0;border-top:1px solid var(--ink)}
+  .pane{padding:20px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation-duration:2s!important}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="mark" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg></div>
+  <span class="brand">DocFlow AI</span>
+</header>
+
+<main>
+  <h1>Convert and compress your documents</h1>
+  <p class="lede">Pick a tool, add your file, and download the result. Nothing to install.</p>
+
+  <div class="workbench">
+    <section class="pane" aria-labelledby="h-tool">
+      <fieldset>
+        <legend><h2 id="h-tool">Choose a tool</h2></legend>
+        <div class="tools">
+          <div class="tool">
+            <input type="radio" name="tool" id="t-word" value="word_to_pdf" checked>
+            <label for="t-word"><b>Word to PDF</b><span>Turn a .doc or .docx into a PDF</span></label>
+          </div>
+          <div class="tool">
+            <input type="radio" name="tool" id="t-compress" value="compress_pdf">
+            <label for="t-compress"><b>Compress PDF</b><span>Make a PDF smaller to share or upload</span></label>
+          </div>
+          <div class="tool">
+            <input type="radio" name="tool" id="t-text" value="pdf_to_word">
+            <label for="t-text"><b>PDF to Text</b><span>Extract the text from a PDF</span></label>
+          </div>
+        </div>
+      </fieldset>
+    </section>
+
+    <section class="pane" aria-labelledby="h-file">
+      <h2 id="h-file">Add your file</h2>
+
+      <div class="drop" id="dropZone">
+        <input type="file" id="fileInput" aria-describedby="acceptHint">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4"/><path d="m7 9 5-5 5 5"/><path d="M5 20h14"/></svg>
+        <strong>Drop a file here or <u>browse</u></strong>
+        <small id="acceptHint">Accepts .doc and .docx</small>
+      </div>
+
+      <div class="file" id="fileCard">
+        <span class="ext" id="fileExt">DOC</span>
+        <div class="meta"><div class="name" id="fileName"></div><div class="size" id="fileSize"></div></div>
+        <button type="button" id="clearBtn">Remove</button>
+      </div>
+
+      <div class="opt" id="extraOptions">
+        <label for="compressionLevel">Compression level</label>
+        <select id="compressionLevel">
+          <option value="medium">Balanced (recommended)</option>
+          <option value="high">High – smaller file</option>
+          <option value="aggressive">Extreme – smallest file</option>
+        </select>
+      </div>
+
+      <button class="go" id="submitBtn" type="button">
+        <span id="btnText">Convert to PDF</span><span class="spin" aria-hidden="true"></span>
+      </button>
+      <div class="status" id="status" role="status" aria-live="polite"></div>
+    </section>
+  </div>
+</main>
+
+<footer>Files are sent to your DocFlow server for processing.</footer>
+
+<script>
+// Set this to your public n8n webhook URL in production.
+const N8N_WEBHOOK_URL = 'http://localhost:5678/webhook/docflow';
+
+const TOOLS = {
+  word_to_pdf:  { accept: '.doc,.docx', hint: 'Accepts .doc and .docx', btn: 'Convert to PDF',  out: 'pdf' },
+  compress_pdf: { accept: '.pdf',       hint: 'Accepts .pdf',           btn: 'Compress PDF',    out: 'pdf' },
+  pdf_to_word:  { accept: '.pdf',       hint: 'Accepts .pdf',           btn: 'Extract text',    out: 'txt' }
+};
+
+let selectedAction = 'word_to_pdf';
+let selectedFile = null;
+
+const $ = id => document.getElementById(id);
+const fileInput = $('fileInput'), dropZone = $('dropZone'), submitBtn = $('submitBtn');
+
+function extOf(name){ const m = /\.([a-z0-9]+)$/i.exec(name); return m ? m[1].toLowerCase() : ''; }
+function fmtSize(b){ return b < 1048576 ? Math.max(1, Math.round(b/1024)) + ' KB' : (b/1048576).toFixed(1) + ' MB'; }
+function showStatus(msg, type){ const s = $('status'); s.textContent = msg; s.className = 'status ' + (type || ''); }
+
+function fileAllowed(file){
+  return TOOLS[selectedAction].accept.split(',').includes('.' + extOf(file.name));
+}
+
+// Tool selection
+document.querySelectorAll('input[name="tool"]').forEach(r => r.addEventListener('change', () => {
+  selectedAction = r.value;
+  const t = TOOLS[selectedAction];
+  fileInput.accept = t.accept;
+  $('acceptHint').textContent = t.hint;
+  $('btnText').textContent = t.btn;
+  $('extraOptions').classList.toggle('on', selectedAction === 'compress_pdf');
+  if (selectedFile && !fileAllowed(selectedFile)) clearFile();
+  showStatus('');
+}));
+fileInput.accept = TOOLS[selectedAction].accept;
+
+// File selection
+function setFile(file){
+  if (!fileAllowed(file)) {
+    showStatus('That file type doesn\u2019t work with this tool. ' + TOOLS[selectedAction].hint + '.', 'err');
+    return;
+  }
+  selectedFile = file;
+  $('fileName').textContent = file.name;
+  $('fileSize').textContent = fmtSize(file.size);
+  $('fileExt').textContent = extOf(file.name).toUpperCase();
+  $('fileCard').classList.add('on');
+  showStatus('');
+}
+function clearFile(){
+  selectedFile = null; fileInput.value = '';
+  $('fileCard').classList.remove('on');
+}
+fileInput.addEventListener('change', () => { if (fileInput.files.length) setFile(fileInput.files[0]); });
+$('clearBtn').addEventListener('click', () => { clearFile(); showStatus(''); });
+
+// Drag and drop
+['dragenter','dragover'].forEach(ev => dropZone.addEventListener(ev, e => { e.preventDefault(); dropZone.classList.add('dragover'); }));
+['dragleave','drop'].forEach(ev => dropZone.addEventListener(ev, e => { e.preventDefault(); dropZone.classList.remove('dragover'); }));
+dropZone.addEventListener('drop', e => { if (e.dataTransfer.files.length) setFile(e.dataTransfer.files[0]); });
+
+// Process via n8n
+async function processFile(){
+  if (!selectedFile) { showStatus('Add a file first.', 'err'); return; }
+
+  const formData = new FormData();
+  formData.append('data', selectedFile);
+  formData.append('action', selectedAction);
+  if (selectedAction === 'compress_pdf') formData.append('compression_level', $('compressionLevel').value);
+
+  submitBtn.disabled = true; submitBtn.classList.add('busy');
+  showStatus('Processing your document\u2026', 'wait');
+
+  try {
+    const response = await fetch(N8N_WEBHOOK_URL, { method: 'POST', body: formData });
+    if (!response.ok) throw new Error('Server error: ' + response.status);
+
+    const blob = await response.blob();
+    const base = selectedFile.name.replace(/\.[^.]+$/, '');
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = base + (selectedAction === 'compress_pdf' ? '-compressed' : '') + '.' + TOOLS[selectedAction].out;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+
+    showStatus('Done. Your file has been downloaded.', 'ok');
+  } catch (err) {
+    console.error(err);
+    showStatus('Couldn\u2019t process the file. Check that n8n is running and the webhook URL is correct, then try again.', 'err');
+  } finally {
+    submitBtn.disabled = false; submitBtn.classList.remove('busy');
+  }
+}
+submitBtn.addEventListener('click', processFile);
+</script>
+</body>
+</html>
